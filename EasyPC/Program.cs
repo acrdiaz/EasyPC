@@ -6,44 +6,54 @@ namespace EasyPC
 {
     class Program
     {
+        // A flag to control the background thread
+        private static bool _isRunning = true;
+
         static void Main(string[] args)
         {
-            Console.WriteLine("Welcome to the CMD Command Runner!");
-            Console.WriteLine("Available Commands:");
-            Console.WriteLine("1. Stop IIS (net stop w3svc)");
-            Console.WriteLine("2. Kill Explorer (taskkill -f -im explorer.exe)");
-            Console.WriteLine("Enter the number of the command you want to run:");
+            Console.WriteLine("Welcome to the Automatic CMD Command Runner!");
+            Console.WriteLine("The app will start running commands automatically in the background.");
+            Console.WriteLine("Press Ctrl+C to stop the application...");
 
-            string choice = Console.ReadLine();
+            // Start a background thread to run commands
+            Thread commandThread = new Thread(RunCommands);
+            commandThread.Start();
 
-            string command;
-            switch (choice)
+            // Handle graceful shutdown when the user presses Ctrl+C
+            Console.CancelKeyPress += (sender, eventArgs) =>
             {
-                case "1":
-                    command = "net stop w3svc";
-                    break;
-                case "2":
-                    command = "taskkill -f -im explorer.exe";
-                    break;
-                default:
-                    Console.WriteLine("Invalid choice. Exiting...");
-                    return;
-            }
+                Console.WriteLine("\nStopping the application...");
+                _isRunning = false; // Signal the thread to stop
+                commandThread.Join(); // Wait for the thread to finish
+                Console.WriteLine("Application stopped.");
 
-            try
+                Environment.Exit(0);
+            };
+        }
+
+        static void RunCommands()
+        {
+            while (_isRunning)
             {
-                RunCommand(command);
-                Console.WriteLine($"Command executed successfully: {command}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"An error occurred: {ex.Message}");
+                try
+                {
+                    RunCommand("net stop w3svc");
+                    
+                    Thread.Sleep(5000);
+
+                    RunCommand("taskkill -f -im explorer.exe");
+
+                    Thread.Sleep(10000);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"An error occurred: {ex.Message}");
+                }
             }
         }
 
         static void RunCommand(string command)
         {
-            // Create a new process to run the command
             var processInfo = new ProcessStartInfo
             {
                 FileName = "cmd.exe",
