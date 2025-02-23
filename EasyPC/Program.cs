@@ -71,7 +71,11 @@ namespace EasyPC
             }
         }
 
-        private static (string[] commands, int delayBetweenCommandsMs, int loopDelayMs) LoadCommandsToMemory()
+        private static (
+            string[] commands, 
+            int delayBetweenCommandsMs, 
+            int loopDelayMs
+            ) LoadCommandsToMemory()
         {
             // Load configuration from appsettings.json
             IConfiguration config = new ConfigurationBuilder()
@@ -204,13 +208,12 @@ namespace EasyPC
 
                 if (!string.IsNullOrEmpty(output))
                 {
-                    Console.Write("Output: ");
                     Console.WriteLine(output);
                 }
 
                 if (!string.IsNullOrEmpty(error))
                 {
-                    Console.WriteLine("s=");
+                    Console.WriteLine("=s=");
                 }
             }
         }
