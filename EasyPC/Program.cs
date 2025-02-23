@@ -11,46 +11,15 @@ namespace EasyPC
 
         static async Task Main(string[] args)
         {
-            // Check if the application is running on Windows
-            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                Console.WriteLine("This application is designed to run only on Windows.");
-                Console.WriteLine("Exiting...");
-                return; // Exit the application
-            }
+            OSWindowsValidate();
 
-            // Check if the application is running as an administrator
-            if (!IsRunningAsAdministrator())
-            {
-                Console.WriteLine("This application requires administrator privileges.");
-                Console.WriteLine("Restarting with elevated privileges...");
-                RestartAsAdministrator();
-                return; // Exit the current instance
-            }
-                
-            // Load configuration from appsettings.json
-            IConfiguration config = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-                .Build();
+            (string[] commands, int delayBetweenCommandsMs, int loopDelayMs) = LoadCommandsToMemory();
 
-            // Read commands and delays from configuration
-            var commands = config.GetSection("Commands").Get<string[]>();
-            int delayBetweenCommandsMs = config.GetValue<int>("DelayBetweenCommandsMs");
-            int loopDelayMs = config.GetValue<int>("DelayBetweenLoopsMs");
+            await WorkerSetup(commands, delayBetweenCommandsMs, loopDelayMs);
+        }
 
-            Console.WriteLine("Welcome to the EasyPC!\n");
-            Console.WriteLine("\nThe app will start running commands automatically in the background.");
-            Console.WriteLine("\nPress Ctrl+C to stop the application...\n");
-            //Console.WriteLine("You can also enter an additional command at any time."); // suggest user input to run cmds
-
-            if (string.IsNullOrEmpty(commands?.ToString()))
-            {
-                Console.WriteLine("\nThere is nothing to run: appsettings.json file is empty");
-                Console.WriteLine("\nStopping the application...");
-                Environment.Exit(0);
-            }
-
+        private static async Task WorkerSetup(string[] commands, int delayBetweenCommandsMs, int loopDelayMs)
+        {
             // Start the background task
             Task commandTask = RunCommandsAsync(commands, delayBetweenCommandsMs, loopDelayMs, _cancellationTokenSource.Token);
 
@@ -78,6 +47,54 @@ namespace EasyPC
             {
                 Console.WriteLine("Application stopped.");
             }
+        }
+
+        private static void OSWindowsValidate()
+        {
+            // Check if the application is running on Windows
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                Console.WriteLine("This application is designed to run only on Windows.");
+                Console.WriteLine("Exiting...");
+                return; // Exit the application
+            }
+
+            // Check if the application is running as an administrator
+            if (!IsRunningAsAdministrator())
+            {
+                Console.WriteLine("This application requires administrator privileges.");
+                Console.WriteLine("Restarting with elevated privileges...");
+                RestartAsAdministrator();
+                Environment.Exit(0); // Exit the current process
+            }
+        }
+
+        private static (string[] commands, int delayBetweenCommandsMs, int loopDelayMs) LoadCommandsToMemory()
+        {
+            // Load configuration from appsettings.json
+            IConfiguration config = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                .Build();
+
+            // Read commands and delays from configuration
+            var commands = config.GetSection("Commands").Get<string[]>();
+            int delayBetweenCommandsMs = config.GetValue<int>("DelayBetweenCommandsMs");
+            int loopDelayMs = config.GetValue<int>("DelayBetweenLoopsMs");
+
+            Console.WriteLine("Welcome to the EasyPC!\n");
+            Console.WriteLine("\nThe app will start running commands automatically in the background.");
+            Console.WriteLine("\nPress Ctrl+C to stop the application...\n");
+            //Console.WriteLine("You can also enter an additional command at any time."); // suggest user input to run cmds
+
+            if (string.IsNullOrEmpty(commands?.ToString()))
+            {
+                Console.WriteLine("\nThere is nothing to run: appsettings.json file is empty");
+                Console.WriteLine("\nStopping the application...");
+                Environment.Exit(0);
+            }
+
+            return (commands, delayBetweenCommandsMs, loopDelayMs);
         }
 
         static bool IsRunningAsAdministrator()
