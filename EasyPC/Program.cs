@@ -28,7 +28,7 @@ namespace EasyPC
             Console.WriteLine("Welcome to the EasyPC!");
             Console.WriteLine("The app will start running commands automatically in the background.");
             Console.WriteLine("Press Ctrl+C to stop the application...");
-            Console.WriteLine("You can also enter an additional command at any time.");
+            //Console.WriteLine("You can also enter an additional command at any time.");
 
             if (string.IsNullOrEmpty(commands?.ToString()))
             {
@@ -41,7 +41,7 @@ namespace EasyPC
             Task commandTask = RunCommandsAsync(commands, delayBetweenCommandsMs, loopDelayMs, _cancellationTokenSource.Token);
 
             // Handle user input for additional commands
-            Task userInputTask = HandleUserInputAsync(_cancellationTokenSource.Token);
+            //Task userInputTask = HandleUserInputAsync(_cancellationTokenSource.Token);
 
             // Handle graceful shutdown when the user presses Ctrl+C
             Console.CancelKeyPress += (sender, eventArgs) =>
@@ -55,7 +55,10 @@ namespace EasyPC
 
             try
             {
-                await Task.WhenAll(commandTask, userInputTask); // Wait for both tasks to complete
+                await Task.WhenAll(
+                    commandTask
+                    //, userInputTask
+                    ); // Wait for tasks to complete
             }
             catch (OperationCanceledException)
             {
@@ -141,13 +144,13 @@ namespace EasyPC
 
                 if (!string.IsNullOrEmpty(output))
                 {
-                    Console.WriteLine("Output:");
+                    Console.Write("Output: ");
                     Console.WriteLine(output);
                 }
 
                 if (!string.IsNullOrEmpty(error))
                 {
-                    Console.WriteLine("Error:");
+                    Console.Write("Error:");
                     Console.WriteLine(error);
                 }
             }
