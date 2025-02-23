@@ -28,6 +28,7 @@ namespace EasyPC
             Console.WriteLine("Welcome to the EasyPC!");
             Console.WriteLine("The app will start running commands automatically in the background.");
             Console.WriteLine("Press Ctrl+C to stop the application...");
+            Console.WriteLine("You can also enter an additional command at any time.");
 
             if (string.IsNullOrEmpty(commands?.ToString()))
             {
@@ -39,6 +40,8 @@ namespace EasyPC
             // Start the background task
             Task commandTask = RunCommandsAsync(commands, delayBetweenCommandsMs, loopDelayMs, _cancellationTokenSource.Token);
 
+            // Handle user input for additional commands
+            Task userInputTask = HandleUserInputAsync(_cancellationTokenSource.Token);
 
             // Handle graceful shutdown when the user presses Ctrl+C
             Console.CancelKeyPress += (sender, eventArgs) =>
@@ -52,7 +55,7 @@ namespace EasyPC
 
             try
             {
-                await commandTask; // Wait for the task to complete
+                await Task.WhenAll(commandTask, userInputTask); // Wait for both tasks to complete
             }
             catch (OperationCanceledException)
             {
@@ -86,6 +89,28 @@ namespace EasyPC
                 }
 
                 await Task.Delay(loopDelayMs, cancellationToken); // Delay before repeating the loop
+            }
+        }
+
+        static async Task HandleUserInputAsync(CancellationToken cancellationToken)
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                Console.Write("\nEnter an additional command to run (or press Enter to skip): ");
+                string? additionalCommand = Console.ReadLine();
+
+                if (!string.IsNullOrWhiteSpace(additionalCommand))
+                {
+                    try
+                    {
+                        Console.WriteLine($"Running additional command: {additionalCommand}");
+                        await RunCommandAsync(additionalCommand, cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"An error occurred while running the additional command: {ex.Message}");
+                    }
+                }
             }
         }
 
