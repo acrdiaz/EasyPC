@@ -183,7 +183,7 @@ namespace EasyPC
 
         static async Task RunCommandAsync(string command, CancellationToken cancellationToken)
         {
-            Console.WriteLine($">> {command}"); // Executing command: 
+            Console.Write($"> {command}"); // Executing command: 
 
             var processInfo = new ProcessStartInfo
             {
@@ -213,7 +213,7 @@ namespace EasyPC
 
                 if (!string.IsNullOrEmpty(error))
                 {
-                    Console.WriteLine("=s=");
+                    Console.WriteLine(" -- =s=");
                 }
             }
         }
