@@ -1,49 +1,61 @@
-﻿
-
+﻿using System;
 using System.Diagnostics;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace EasyPC
 {
     class Program
     {
-        // A flag to control the background thread
-        private static bool _isRunning = true;
+        private static CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
 
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
-            Console.WriteLine("Welcome to the Automatic CMD Command Runner!");
+            Console.WriteLine("Welcome to the EasyPC!");
             Console.WriteLine("The app will start running commands automatically in the background.");
             Console.WriteLine("Press Ctrl+C to stop the application...");
 
-            // Start a background thread to run commands
-            Thread commandThread = new Thread(RunCommands);
-            commandThread.Start();
+            // Start the background task
+            Task commandTask = RunCommandsAsync(_cancellationTokenSource.Token);
 
             // Handle graceful shutdown when the user presses Ctrl+C
             Console.CancelKeyPress += (sender, eventArgs) =>
             {
                 Console.WriteLine("\nStopping the application...");
-                _isRunning = false; // Signal the thread to stop
-                commandThread.Join(); // Wait for the thread to finish
-                Console.WriteLine("Application stopped.");
+                _cancellationTokenSource.Cancel(); // Signal the task to stop
+                eventArgs.Cancel = true; // Prevent the process from terminating immediately
 
                 Environment.Exit(0);
             };
+
+            try
+            {
+                await commandTask; // Wait for the task to complete
+            }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine("Application stopped.");
+            }
         }
 
-        static void RunCommands()
+        static async Task RunCommandsAsync(CancellationToken cancellationToken)
         {
-            while (_isRunning)
+            while (!cancellationToken.IsCancellationRequested)
             {
                 try
                 {
-                    RunCommand("net stop w3svc");
-                    
-                    Thread.Sleep(5000);
+                    await RunCommandAsync("net stop w3svc", cancellationToken);
 
-                    RunCommand("taskkill -f -im explorer.exe");
+                    await Task.Delay(5000, cancellationToken);
 
-                    Thread.Sleep(10000);
+                    await RunCommandAsync("taskkill -f -im explorer.exe", cancellationToken);
+
+                    await Task.Delay(10000, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    // This exception is expected when the task is canceled
+                    break;
                 }
                 catch (Exception ex)
                 {
@@ -52,8 +64,10 @@ namespace EasyPC
             }
         }
 
-        static void RunCommand(string command)
+        static async Task RunCommandAsync(string command, CancellationToken cancellationToken)
         {
+            Console.WriteLine($"Executing command: {command}");
+
             var processInfo = new ProcessStartInfo
             {
                 FileName = "cmd.exe",
@@ -69,11 +83,11 @@ namespace EasyPC
                 process.StartInfo = processInfo;
                 process.Start();
 
-                // Read the output (if any)
-                string output = process.StandardOutput.ReadToEnd();
-                string error = process.StandardError.ReadToEnd();
+                // Read the output asynchronously
+                string output = await process.StandardOutput.ReadToEndAsync();
+                string error = await process.StandardError.ReadToEndAsync();
 
-                process.WaitForExit();
+                await process.WaitForExitAsync(cancellationToken);
 
                 if (!string.IsNullOrEmpty(output))
                 {
