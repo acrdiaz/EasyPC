@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Diagnostics.Tracing;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 
 namespace EasyPC
 {
@@ -11,12 +14,31 @@ namespace EasyPC
 
         static async Task Main(string[] args)
         {
+            // Load configuration from appsettings.json
+            IConfiguration config = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                .Build();
+
+            // Read commands and delays from configuration
+            var commands = config.GetSection("Commands").Get<string[]>();
+            int delayBetweenCommandsMs = config.GetValue<int>("DelayBetweenCommandsMs");
+            int loopDelayMs = config.GetValue<int>("DelayBetweenLoopsMs");
+
             Console.WriteLine("Welcome to the EasyPC!");
             Console.WriteLine("The app will start running commands automatically in the background.");
             Console.WriteLine("Press Ctrl+C to stop the application...");
 
+            if (string.IsNullOrEmpty(commands?.ToString()))
+            {
+                Console.WriteLine("\nThere is nothing to run: appsettings.json file is empty");
+                Console.WriteLine("\nStopping the application...");
+                Environment.Exit(0);
+            }
+
             // Start the background task
-            Task commandTask = RunCommandsAsync(_cancellationTokenSource.Token);
+            Task commandTask = RunCommandsAsync(commands, delayBetweenCommandsMs, loopDelayMs, _cancellationTokenSource.Token);
+
 
             // Handle graceful shutdown when the user presses Ctrl+C
             Console.CancelKeyPress += (sender, eventArgs) =>
@@ -38,29 +60,32 @@ namespace EasyPC
             }
         }
 
-        static async Task RunCommandsAsync(CancellationToken cancellationToken)
+        static async Task RunCommandsAsync(
+            string[] commands, 
+            int delayBetweenCommandsMs, 
+            int loopDelayMs, 
+            CancellationToken cancellationToken)
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                try
+                foreach (var command in commands)
                 {
-                    await RunCommandAsync("net stop w3svc", cancellationToken);
-
-                    await Task.Delay(5000, cancellationToken);
-
-                    await RunCommandAsync("taskkill -f -im explorer.exe", cancellationToken);
-
-                    await Task.Delay(10000, cancellationToken);
+                    try
+                    {
+                        await RunCommandAsync(command, cancellationToken);
+                        await Task.Delay(delayBetweenCommandsMs, cancellationToken); // Delay between commands
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break; // Exit the loop if cancellation is requested
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"An error occurred: {ex.Message}");
+                    }
                 }
-                catch (OperationCanceledException)
-                {
-                    // This exception is expected when the task is canceled
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"An error occurred: {ex.Message}");
-                }
+
+                await Task.Delay(loopDelayMs, cancellationToken); // Delay before repeating the loop
             }
         }
 
