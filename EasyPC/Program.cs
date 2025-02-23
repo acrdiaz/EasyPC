@@ -8,14 +8,91 @@ namespace EasyPC
     class Program
     {
         private static CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+        
+        //private static NotifyIcon _notifyIcon;
+        private static NotifyIcon trayIcon;
+        private static ContextMenuStrip trayMenu;
 
+
+        [STAThread] // Required for Windows Forms
         static async Task Main(string[] args)
         {
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+
+            // Create a simple tray menu with an option to show the console window
+            trayMenu = new ContextMenuStrip();
+            trayMenu.Items.Add("Show Console", null, OnShowConsole);
+            trayMenu.Items.Add("Exit", null, OnExit);
+
+            // Initialize the tray icon
+            trayIcon = new NotifyIcon
+            {
+                //Icon = new Icon("icon.ico"), // You can replace "icon.ico" with your own icon file
+                Icon = System.Drawing.SystemIcons.Application, // Default application icon
+                ContextMenuStrip = trayMenu,
+                Visible = true,
+                Text = "TrayApp"
+            };
+
+            // Hide the console window initially
+            HideConsole();
+
+            // Run the application
+            //Application.Run();
+
+            // Clean up when the application exits
+            trayIcon.Dispose();
+
+
             OSWindowsValidate();
 
             (string[] commands, int delayBetweenCommandsMs, int loopDelayMs) = LoadCommandsToMemory();
 
             await WorkerSetup(commands, delayBetweenCommandsMs, loopDelayMs);
+        }
+
+        private static void OnShowConsole(object sender, EventArgs e)
+        {
+            ShowConsole();
+        }
+
+        private static void OnExit(object sender, EventArgs e)
+        {
+            trayIcon.Visible = false; // Hide the tray icon
+            Application.Exit();      // Exit the application
+        }
+
+        private static void HideConsole()
+        {
+            // Get the current process and hide the console window
+            var handle = NativeMethods.GetConsoleWindow();
+            if (handle != IntPtr.Zero)
+            {
+                NativeMethods.ShowWindow(handle, NativeMethods.SW_HIDE);
+            }
+        }
+
+        private static void ShowConsole()
+        {
+            // Get the current process and show the console window
+            var handle = NativeMethods.GetConsoleWindow();
+            if (handle != IntPtr.Zero)
+            {
+                NativeMethods.ShowWindow(handle, NativeMethods.SW_SHOW);
+            }
+        }
+
+        private static class NativeMethods
+        {
+            public const int SW_HIDE = 0;
+            public const int SW_SHOW = 5;
+
+            [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+            public static extern IntPtr GetConsoleWindow();
+
+            [System.Runtime.InteropServices.DllImport("user32.dll")]
+            public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
         }
 
         private static async Task WorkerSetup(string[] commands, int delayBetweenCommandsMs, int loopDelayMs)
@@ -217,5 +294,12 @@ namespace EasyPC
                 }
             }
         }
+
+        // P/Invoke declarations to hide the console window
+        const int SW_HIDE = 0;
+        [DllImport("kernel32.dll")]
+        static extern IntPtr GetConsoleWindow();
+        [DllImport("user32.dll")]
+        static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     }
 }
