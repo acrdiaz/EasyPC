@@ -1,9 +1,6 @@
-﻿using System;
-using System.Diagnostics;
-using System.Diagnostics.Tracing;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Security.Principal;
 using Microsoft.Extensions.Configuration;
 
 namespace EasyPC
@@ -14,6 +11,23 @@ namespace EasyPC
 
         static async Task Main(string[] args)
         {
+            // Check if the application is running on Windows
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                Console.WriteLine("This application is designed to run only on Windows.");
+                Console.WriteLine("Exiting...");
+                return; // Exit the application
+            }
+
+            // Check if the application is running as an administrator
+            if (!IsRunningAsAdministrator())
+            {
+                Console.WriteLine("This application requires administrator privileges.");
+                Console.WriteLine("Restarting with elevated privileges...");
+                RestartAsAdministrator();
+                return; // Exit the current instance
+            }
+                
             // Load configuration from appsettings.json
             IConfiguration config = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
@@ -25,10 +39,10 @@ namespace EasyPC
             int delayBetweenCommandsMs = config.GetValue<int>("DelayBetweenCommandsMs");
             int loopDelayMs = config.GetValue<int>("DelayBetweenLoopsMs");
 
-            Console.WriteLine("Welcome to the EasyPC!");
-            Console.WriteLine("The app will start running commands automatically in the background.");
-            Console.WriteLine("Press Ctrl+C to stop the application...");
-            //Console.WriteLine("You can also enter an additional command at any time.");
+            Console.WriteLine("Welcome to the EasyPC!\n");
+            Console.WriteLine("\nThe app will start running commands automatically in the background.");
+            Console.WriteLine("\nPress Ctrl+C to stop the application...\n");
+            //Console.WriteLine("You can also enter an additional command at any time."); // suggest user input to run cmds
 
             if (string.IsNullOrEmpty(commands?.ToString()))
             {
@@ -63,6 +77,33 @@ namespace EasyPC
             catch (OperationCanceledException)
             {
                 Console.WriteLine("Application stopped.");
+            }
+        }
+
+        static bool IsRunningAsAdministrator()
+        {
+            WindowsIdentity identity = WindowsIdentity.GetCurrent();
+            WindowsPrincipal principal = new WindowsPrincipal(identity);
+            return principal.IsInRole(WindowsBuiltInRole.Administrator);
+        }
+
+        static void RestartAsAdministrator()
+        {
+            ProcessStartInfo procInfo = new ProcessStartInfo
+            {
+                FileName = Process.GetCurrentProcess().MainModule?.FileName,
+                Verb = "runas", // This triggers the UAC prompt
+                UseShellExecute = true
+            };
+
+            try
+            {
+                Process.Start(procInfo);
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+                Console.WriteLine("The user declined to run the application as an administrator.");
+                Console.WriteLine("Exiting...");
             }
         }
 
@@ -150,7 +191,7 @@ namespace EasyPC
 
                 if (!string.IsNullOrEmpty(error))
                 {
-                    Console.Write("Error:");
+                    Console.Write("Error: ");
                     Console.WriteLine(error);
                 }
             }
