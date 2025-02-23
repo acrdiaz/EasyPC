@@ -21,7 +21,9 @@ namespace EasyPC
         private static async Task WorkerSetup(string[] commands, int delayBetweenCommandsMs, int loopDelayMs)
         {
             // Start the background task
-            Task commandTask = RunCommandsAsync(commands, delayBetweenCommandsMs, loopDelayMs, _cancellationTokenSource.Token);
+            Func<Task> runCommandsTask = () => RunCommandsAsync(commands, delayBetweenCommandsMs, loopDelayMs, _cancellationTokenSource.Token);
+            Func<Task> handleUserInputTask = () => HandleUserInputAsync(_cancellationTokenSource.Token);
+
 
             // Handle user input for additional commands
             //Task userInputTask = HandleUserInputAsync(_cancellationTokenSource.Token);
@@ -39,8 +41,8 @@ namespace EasyPC
             try
             {
                 await Task.WhenAll(
-                    commandTask
-                    //, userInputTask
+                    runCommandsTask()
+                    //, handleUserInputTask()
                     ); // Wait for tasks to complete
             }
             catch (OperationCanceledException)
@@ -177,7 +179,7 @@ namespace EasyPC
 
         static async Task RunCommandAsync(string command, CancellationToken cancellationToken)
         {
-            Console.WriteLine($"Executing command: {command}");
+            Console.WriteLine($">> {command}"); // Executing command: 
 
             var processInfo = new ProcessStartInfo
             {
@@ -208,8 +210,7 @@ namespace EasyPC
 
                 if (!string.IsNullOrEmpty(error))
                 {
-                    Console.Write("Error: ");
-                    Console.WriteLine(error);
+                    Console.WriteLine("s=");
                 }
             }
         }
