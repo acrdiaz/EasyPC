@@ -208,7 +208,7 @@ namespace EasyPC
 
                 if (!string.IsNullOrEmpty(output))
                 {
-                    Console.WriteLine(output);
+                    Console.WriteLine("\n" + output);
                 }
 
                 if (!string.IsNullOrEmpty(error))
